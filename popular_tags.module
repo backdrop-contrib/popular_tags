@@ -1,62 +1,49 @@
 <?php
-
 /**
  * @file
- * Main module implementation of (clickable) popular tags.
+ * Displays popular taxonomy terms under term reference fields.
  */
 
 /**
- * Implements hook_form_field_ui_field_edit_form_alter().
- *
- * Which allows us to inject a checkbox in the field instance's settings form.
- * This chekcbox, when checked, will add clickable popular tags to any tag
- * autocomplete widget.
- *
- * @param array $form
- *   form to alter
- * @param array $form_state
- *   not used
- * @param string $form_id
- *   not used
+ * Implements hook_form_FORM_ID_alter() for field_ui_field_edit_form.
  */
 function popular_tags_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id) {
-  // Field instance.
-  $instance = $form['#instance'];
-  if ($instance['widget']['type'] == 'taxonomy_autocomplete' ||
-      $instance['widget']['type'] == 'active_tags_taxonomy_autocomplete') {
-    /* If this is a taxonomy_autocomplete widget then add the popular_tags
-     * checkbox to the field edit form. We don't have to do anything to save
-     * this setting since the form element path is instance/widget/settings/... */
+  $instance = $form['#instance']['widget'];
+  $settings = $instance['settings']['popular_tags'];
+
+  // Add settings to form.
+  if ($instance['type'] == 'taxonomy_autocomplete' || $instance['type'] == 'active_tags_taxonomy_autocomplete') {
     $form['instance']['widget']['settings']['popular_tags'] = array(
       '#type' => 'fieldset',
-      '#title' => t('Popular Tags'),
-      '#description' => t('Present the users with most popular terms and allow them to select tags by clicking on them.'),
+      '#title' => t('Popular tags'),
+      '#description' => t('Display popular taxonomy terms under this field.'),
     );
     $form['instance']['widget']['settings']['popular_tags']['use'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Use Clickable Popular Tags?'),
-      '#default_value' => @$instance['widget']['settings']['popular_tags']['use'],
+      '#title' => t('Enable popular tags'),
+      '#default_value' => isset($settings['use']) ? $settings['use'] : FALSE,
     );
     $form['instance']['widget']['settings']['popular_tags']['limit'] = array(
-      '#type' => 'textfield',
+      '#type' => 'number',
       '#title' => t('Limit'),
-      '#description' => t('How many (at most) to show? Leave empty if no limit.'),
-      '#default_value' => @$instance['widget']['settings']['popular_tags']['limit'],
+      '#description' => t("The number of tags to show. Leave empty for no limit."),
+      '#default_value' => isset($settings['limit']) ? $settings['limit'] : 10,
+      '#min' => 1,
       '#states' => array(
         'visible' => array(
-          ':input[name="instance[widget][settings][popular_tags][use]"]' => array('checked' => TRUE),
+          ':input[name$="[popular_tags][use]"]' => array('checked' => TRUE),
         ),
       ),
     );
     $form['instance']['widget']['settings']['popular_tags']['showhide'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Show/Hide Links?'),
-      '#description' => t('Should the user be presented with "Show All" and "Show Popular" links? These links allow the user to view only the popular tags, or view all tags.'),
-      '#default_value' => @$instance['widget']['settings']['popular_tags']['showhide'],
+      '#title' => t('Show/Hide links'),
+      '#description' => t("Display 'Show all' and 'Show popular' links."),
+      '#default_value' => isset($settings['showhide']) ? $settings['showhide'] : TRUE,
       '#states' => array(
         'visible' => array(
-          ':input[name="instance[widget][settings][popular_tags][use]"]' => array('checked' => TRUE),
-          ':input[name="instance[widget][settings][popular_tags][limit]"]' => array('!value' => ''),
+          ':input[name$="[popular_tags][use]"]' => array('checked' => TRUE),
+          ':input[name$="[popular_tags][limit]"]' => array('!value' => ''),
         ),
       ),
     );
@@ -65,22 +52,100 @@ function popular_tags_form_field_ui_field_edit_form_alter(&$form, &$form_state, 
 
 /**
  * Implements hook_field_widget_form_alter().
- *
- * Alters any form where a taxonomy_autocomplete widget is used with
- * popular_tags setting ON.
- *
- * @param array $element
- *   form element to alter
- * @param array $form_state
- *   not used
- * @param array $context
- *   form element context
  */
 function popular_tags_field_widget_form_alter(&$element, &$form_state, $context) {
-  if (($context['instance']['widget']['type'] == 'taxonomy_autocomplete' ||
-       $context['instance']['widget']['type'] == 'active_tags_taxonomy_autocomplete')
-     && !empty($context['instance']['widget']['settings']['popular_tags']['use'])) {
-    module_load_include('inc', 'popular_tags', 'popular_tags.widget');
-    _popular_tags_inject($element, $context);
+  $widget = $context['instance']['widget'];
+
+  if ($widget['type'] == 'taxonomy_autocomplete' || $widget['type'] == 'active_tags_taxonomy_autocomplete') {
+    if ($widget['settings']['popular_tags']['use']) {
+      $limit = $widget['settings']['popular_tags']['limit'];
+      $showhide = $widget['settings']['popular_tags']['showhide'];
+
+      // Add JS and CSS.
+      backdrop_add_js(backdrop_get_path('module', 'popular_tags') . '/js/popular_tags.js');
+      backdrop_add_css(backdrop_get_path('module', 'popular_tags') . '/css/popular_tags.css');
+
+      // Send $limit as setting to JS.
+      if ($showhide) {
+        $data['popular_tags'][$element['#field_name']]['limit'] = $limit;
+        backdrop_add_js(array(
+          'popular_tags' => array(
+            $element['#field_name'] => array('limit' => $limit),
+          ),
+        ), 'setting');
+      }
+
+      // Get terms.
+      $terms = _popular_tags_get_terms($context['field']['settings']['allowed_values'][0]['vocabulary'], $limit, $showhide);
+
+      // Setup tags list.
+      $tag_terms = '<div class="tag-terms">';
+      $count = 0;
+      foreach ($terms as $tid => $term) {
+        $count++;
+
+        // Setup tag classes.
+        $classes = array('term');
+        if (!empty($limit) && $showhide && $count <= $limit) {
+          $classes[] = 'popular';
+        }
+
+        // Tag names containing a comma need to be quoted.
+        if (strpos($term->name, ',') !== FALSE) {
+          $term->name = '"' . $term->name . '"';
+        }
+
+        // Setup tag link.
+        $tag_terms .= t('<a class="@classes" href="#" title="x@freq">@term</a>', array(
+          '@classes' => implode(' ', $classes),
+          '@freq' => $term->freq,
+          '@term' => $term->name,
+        ));
+      }
+      $tag_terms .= '</div>';
+
+      // Get tags output.
+      $html = '<div class="popular-tags">' . t('You can type your own tags, or choose from the most commonly used tags below.');
+      if (!empty($limit) && $showhide) {
+        $html .= '<a href="#" class="show-all-terms">' . t('Show all tags') . '</a>';
+        $html .= '<a href="#" class="show-popular-terms">' . t('Show popular tags') . '</a>';
+      }
+      $html .= $tag_terms . '</div>';
+
+      // Output tags in field description.
+      $element['#description'] .= $html;
+    }
   }
 }
+
+/**
+ * Get an array of popular terms.
+ *
+ * @param string $vname
+ *   The name of the vocabulary.
+ * @param int $limit
+ *   The number of tags/terms to fetch (NULL returns all).
+ * @param boolean $all
+ *   Whether or not all tags/terms should be fetched (even though $limit may be
+ *   set).
+ *
+ * @return array
+ *   Fetched terms (key = tid, value = term name).
+ */
+function _popular_tags_get_terms($vname, $limit = NULL, $all = FALSE) {
+  $query = db_select('taxonomy_term_data', 'td');
+  $query->fields('td', array('tid', 'name'));
+  $query->leftJoin('taxonomy_index', 'tn', 'tn.tid = td.tid');
+  $query->addExpression('COUNT(tn.tid)', 'freq');
+  $query->condition('td.vocabulary', $vname);
+  $query->groupBy('td.tid');
+  $query->orderBy('freq', 'DESC');
+  $query->orderBy('name');
+  if (!empty($limit) && !$all) {
+    $query->range(0, $limit);
+  }
+  $terms = $query->execute()->fetchAllAssoc('tid');
+
+  return $terms;
+}
+
