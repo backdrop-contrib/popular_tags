@@ -4,7 +4,8 @@
 }
 
 .popular-tags .tag-terms .term {
-  margin-right: 0.5em; /* LTR */
+  display: inline-block;
+  margin-right: 0.6em; /* LTR */
 }
 
 .popular-tags .tag-terms .term.popular {
