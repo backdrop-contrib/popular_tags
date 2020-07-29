@@ -8,6 +8,8 @@ checkboxes, radios, etc.). It shows them as a list of tags, sorted by popularity
 number. Also, when you hover over a listed tag, it shows how many times it has
 been used.
 
+![Popular Tags demonstration](.assets/demo.gif)
+
 This helps you to see what the most commonly-used tags are, rather than having
 to guess. It also avoids the creation of numerous, closely-related and similar
 tags, because you can see if such a tag already exists. The fact that tags are
