@@ -9,7 +9,7 @@
  */
 function popular_tags_form_field_ui_field_edit_form_alter(&$form, &$form_state, $form_id) {
   $instance = $form['#instance']['widget'];
-  $settings = $instance['settings']['popular_tags'];
+  $settings = isset($instance['settings']['popular_tags']) ? $instance['settings']['popular_tags'] : array();
 
   // Add settings to form.
   if ($instance['type'] == 'taxonomy_autocomplete' || $instance['type'] == 'active_tags_taxonomy_autocomplete') {
@@ -57,7 +57,7 @@ function popular_tags_field_widget_form_alter(&$element, &$form_state, $context)
   $widget = $context['instance']['widget'];
 
   if ($widget['type'] == 'taxonomy_autocomplete' || $widget['type'] == 'active_tags_taxonomy_autocomplete') {
-    if ($widget['settings']['popular_tags']['use']) {
+    if (isset($widget['settings']['popular_tags']['use'])) {
       $limit = $widget['settings']['popular_tags']['limit'];
       $showhide = $widget['settings']['popular_tags']['showhide'];
 
