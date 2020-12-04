@@ -57,7 +57,7 @@ function popular_tags_field_widget_form_alter(&$element, &$form_state, $context)
   $widget = $context['instance']['widget'];
 
   if ($widget['type'] == 'taxonomy_autocomplete' || $widget['type'] == 'active_tags_taxonomy_autocomplete') {
-    if (isset($widget['settings']['popular_tags']['use'])) {
+    if (!empty($widget['settings']['popular_tags']['use'])) {
       $limit = $widget['settings']['popular_tags']['limit'];
       $showhide = $widget['settings']['popular_tags']['showhide'];
 
