@@ -39,7 +39,7 @@ https://github.com/backdrop-contrib/popular_tags/issues.
 Current Maintainers
 -------------------
 
-- Peter Anderson (https://github.com/BWPanda).
+- Seeking maintainer(s)
 
 Credits
 -------
