@@ -30,6 +30,10 @@ Installation
 - Create or edit a node of that content type and you'll see a list of clickable
   popular tags under the tag field (provided that there are existing tags).
 
+Video Demo
+----------
+ - [Popular Tags Video Demo](https://www.youtube.com/watch?v=5aOf13-5Jqo) - [Simplo](https://www.youtube.com/@teamtriplo) by Triplo
+
 Issues
 ------
 
@@ -39,7 +43,7 @@ https://github.com/backdrop-contrib/popular_tags/issues.
 Current Maintainers
 -------------------
 
-- Seeking maintainer(s)
+ - [Tim Erickson (stpaultim)](https://github.com/stpaultim)
 
 Credits
 -------
